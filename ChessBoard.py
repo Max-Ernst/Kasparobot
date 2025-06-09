@@ -13,6 +13,7 @@ from map_pieces_to_board import *
 class ChessBoard:
     def __init__(self, game_style="pvp-C", players=["Player 1", "Player 2"]):
         self.game_style = game_style
+        self.move_done = False
 
         self.board = chess.Board()
         self.board.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
@@ -22,6 +23,12 @@ class ChessBoard:
         self.class_to_piece = CLASS_TO_PIECE = {
             0:  '?', 1:  'b', 2:  'k', 3:  'n', 4:  'p', 5:  'q', 6:  'r', 7:  'B', 8:  'K', 9:  'N', 10: 'P', 11: 'Q', 12: 'R',
         }
+        
+        self.fig, self.ax = plt.subplots()
+        self.img_obj = None
+        plt.axis('off')
+        plt.ion()
+        plt.show(block=False)
     
     # Utilities to interact with the chess board
     def print(self):
@@ -163,6 +170,36 @@ class ChessBoard:
         self.set_fen(fen)
         return fen
 
+    def xy_to_square(self, x, y):
+    # Assumes board is 8x8 and rendered square (e.g., 400x400)
+        width, height = self.ax.images[0].get_array().shape[1], self.ax.images[0].get_array().shape[0]
+        square_size = width // 8
+        file_index = int(x // square_size)
+        rank_index = 7 - int(y // square_size)
+        return chess.square_name(chess.square(file_index, rank_index))
+    
+    def on_click(self, event):
+        if event.inaxes != self.ax:
+            return
+
+        x, y = int(event.xdata), int(event.ydata)
+        square = self.xy_to_square(x, y)
+
+        if self.selected_square is None:
+            self.selected_square = square
+            print(f"Selected from square: {square}")
+        else:
+            move_uci = self.selected_square + square
+            move = chess.Move.from_uci(move_uci)
+            if move in self.board.legal_moves:
+                self.board.push(move)
+                self.selected_square = None
+                self.show()
+                self.move_done = True  # Set flag when move is made by click
+            else:
+                print(f"Illegal move: {move_uci}")
+                self.selected_square = None
+
     def show(self):
         svg_data = chess.svg.board(board=self.board)
 
@@ -171,6 +208,12 @@ class ChessBoard:
         image_stream = io.BytesIO(png_bytes)
         img = mpimg.imread(image_stream, format='png')
 
-        plt.imshow(img)
-        plt.axis('off')
-        plt.show()
+        if self.img_obj is None:
+            self.img_obj = self.ax.imshow(img)
+            self.selected_square = None
+            self.fig.canvas.mpl_connect('button_press_event', self.on_click)
+        else:
+            self.img_obj.set_data(img)
+        
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()

@@ -1,3 +1,8 @@
+import sys
+import select
+import time
+import matplotlib.pyplot as plt
+
 from ChessBoard import ChessBoard
 
 def display_help():
@@ -45,30 +50,43 @@ def handle_common_commands(board, command):
 def ai_game():
     """Handles the AI vs Player game mode."""
     board = ChessBoard()
+    board.show()
     player_color = input("Enter your color (white/black): ").strip().lower()
 
     turn = "Player" if player_color == "white" else "AI"
+    import time
+    import matplotlib.pyplot as plt
     
     while not board.is_game_over():
         board.is_check()
-        
         color = board.get_turn()
         print(f"Current Turn: {color}")
 
         if turn == "Player":
-            move = input("Command (Help for Instructions): ").strip()
-
-            if handle_common_commands(board, move):
-                continue
-
-            move = move.replace("move ", "")
-            board.move(move)
-            turn = "AI"
-        
+            board.move_done = False
+            print("Type a command or click on the board to move.")
+            move = None
+            # Loop: check for click move or input
+            while not board.move_done and not move:
+                plt.pause(0.1)  # Allow GUI events
+                if plt.get_fignums():  # If the window is open
+                    try:
+                        if move is None:
+                            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                                move = input("Command (Help for Instructions): ").strip()
+                    except Exception:
+                        pass
+            if board.move_done:
+                turn = "AI"
+            elif move:
+                if handle_common_commands(board, move):
+                    continue
+                move = move.replace("move ", "")
+                board.move(move)
+                turn = "AI"
         else:
             board.stockfish_move()
             turn = "Player"
-        
         board.show()
 
 def pvp_game():
